@@ -79,3 +79,33 @@ $ make run input=inputs/empty_box_cd.xml
     - Take camera as input
     - Render each object according to scene members
     - Write on image according to given camera
+
+
+
+
+
+# Inputs
+empty_box_cd.xml                
+flag_czechia_alternative_ce.xml 
+flag_turkey_alternative_cd.xml  
+horse_and_mug_cd.xml
+empty_box_ce.xml                
+flag_czechia_cd.xml             
+flag_turkey_alternative_ce.xml  
+horse_and_mug_ce.xml
+empty_box_clipped.xml           
+flag_czechia_ce.xml             
+flag_turkey_cd.xml              
+horse_and_mug_orthographic.xml
+filled_box_cd.xml               
+flag_germany_cd.xml             
+flag_turkey_ce.xml              
+horse_and_mug_perspective.xml
+filled_box_ce.xml               
+flag_germany_ce.xml             
+flag_turkey_orthographic.xml    
+sample_cd.xml
+flag_czechia_alternative_cd.xml 
+flag_iceland_ce.xml             
+flag_turkey_perspective.xml     
+sample_ce.xml

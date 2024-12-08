@@ -808,6 +808,28 @@ void Scene::forwardRenderingPipeline(Camera *camera)
                 }
             }
 
+			else{
+    // No culling: handle all triangles
+    Vec3 first_edge = Vec3(transformedPoints[1].x - transformedPoints[0].x, 
+                           transformedPoints[1].y - transformedPoints[0].y, 
+                           transformedPoints[1].z - transformedPoints[0].z, 0);
+    Vec3 second_edge = Vec3(transformedPoints[2].x - transformedPoints[0].x, 
+                            transformedPoints[2].y - transformedPoints[0].y, 
+                            transformedPoints[2].z - transformedPoints[0].z, 0);
+    Vec3 normal = normalizeVec3(crossProductVec3(first_edge, second_edge));
+
+    // Optional: Reverse vertex order for backfaces
+    if (dotProductVec3(normal, Vec3(0, 0, -1, 0)) < 0) {
+        // Reverse vertex order (for backfaces)
+        std::swap(transformedPoints[1], transformedPoints[2]);
+        std::swap(colors[1], colors[2]);
+    }
+
+			}
+
+
+
+
             // 6 - Clipping
             if (mesh->type == 0) {
                 Vec4 p1 = transformedPoints[0], p2 = transformedPoints[1], p3 = transformedPoints[2];
