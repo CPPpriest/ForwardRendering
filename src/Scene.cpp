@@ -249,9 +249,13 @@ Scene::Scene(const char *xmlPath)
 	}
 }
 
+
+
+
 /*
 	Initializes image with background color
 */
+/*
 void Scene::initializeImage(Camera *camera)
 {
 	if (this->image.empty())
@@ -282,6 +286,43 @@ void Scene::initializeImage(Camera *camera)
 	}
 }
 
+*/
+/*
+    Initializes image with background color and sets up depth buffer.
+*/
+void Scene::initializeImage(Camera *camera)
+{
+    if (this->image.empty())
+    {
+        for (int i = 0; i < camera->horRes; i++)
+        {
+            vector<Color> rowOfColors;
+            vector<double> rowOfDepths;
+
+            for (int j = 0; j < camera->verRes; j++)
+            {
+                rowOfColors.push_back(this->backgroundColor);
+                rowOfDepths.push_back(std::numeric_limits<double>::infinity()); // Initialize depth buffer to maximum depth
+            }
+
+            this->image.push_back(rowOfColors);
+            depthBuffer.push_back(rowOfDepths); // Initialize depth buffer
+        }
+    }
+    else
+    {
+        for (int i = 0; i < camera->horRes; i++)
+        {
+            for (int j = 0; j < camera->verRes; j++)
+            {
+                this->image[i][j].r = this->backgroundColor.r;
+                this->image[i][j].g = this->backgroundColor.g;
+                this->image[i][j].b = this->backgroundColor.b;
+                depthBuffer[i][j] = std::numeric_limits<double>::infinity(); // Reset depth buffer
+            }
+        }
+    }
+}
 /*
 	If given value is less than 0, converts value to 0.
 	If given value is more than 255, converts value to 255.
@@ -472,6 +513,7 @@ void line_rasterization(Vec4 first_point, Vec4 second_point, Color first_color, 
     }
 }
 
+/*
 void rasterization(vector<Vec4> pVector, vector<Color> color_Vector, Matrix4 pMatrix4, Camera* camera, std::vector<std::vector<Color> >& image){
     for (int i = 0; i < pVector.size(); ++i) {
         multiplyVec4WithScalar(pVector[i], 1/pVector[i].t);
@@ -542,6 +584,95 @@ void rasterization(vector<Vec4> pVector, vector<Color> color_Vector, Matrix4 pMa
         }
     }
 }
+*/
+
+void rasterization(vector<Vec4> pVector, vector<Color> color_Vector, Matrix4 pMatrix4, Camera *camera, std::vector<std::vector<Color>> &image)
+{
+    for (int i = 0; i < pVector.size(); ++i) {
+        multiplyVec4WithScalar(pVector[i], 1 / pVector[i].t);
+        pVector[i] = multiplyMatrixWithVec4(pMatrix4, pVector[i]);
+    }
+
+    // Take the minimum and maximum x and y values
+    int minX = pVector[0].x;
+    int maxX = pVector[0].x;
+    int minY = pVector[0].y;
+    int maxY = pVector[0].y;
+    for (int i = 1; i < pVector.size(); ++i) {
+        if (pVector[i].x < minX) {
+            minX = pVector[i].x;
+        }
+        if (pVector[i].x > maxX) {
+            maxX = pVector[i].x;
+        }
+        if (pVector[i].y < minY) {
+            minY = pVector[i].y;
+        }
+        if (pVector[i].y > maxY) {
+            maxY = pVector[i].y;
+        }
+    }
+
+    if (minX < 0) minX = 0;
+    if (minX > camera->horRes - 1) minX = camera->horRes - 1;
+    if (minY < 0) minY = 0;
+    if (minY > camera->verRes - 1) minY = camera->verRes - 1;
+    if (maxX < 0) maxX = 0;
+    if (maxX > camera->horRes - 1) maxX = camera->horRes - 1;
+    if (maxY < 0) maxY = 0;
+    if (maxY > camera->verRes - 1) maxY = camera->verRes - 1;
+
+    // Create Vec3 vector using the pVector by discarding t value
+    vector<Vec3> vec3_Vector;
+    for (int i = 0; i < pVector.size(); ++i) {
+        Vec3 temp = Vec3(pVector[i].x, pVector[i].y, pVector[i].z, pVector[i].colorId);
+        vec3_Vector.push_back(temp);
+    }
+
+    // Rasterization algorithm using barycentric coordinates
+    for (int i = minX; i <= maxX; i++) {
+        for (int j = minY; j <= maxY; j++) {
+            // Get the barycentric coordinates of vec3_Vector[0], vec3_Vector[1], vec3_Vector[2]
+            double alpha = ((vec3_Vector[1].y - vec3_Vector[2].y) * i + (vec3_Vector[2].x - vec3_Vector[1].x) * j + vec3_Vector[1].x * vec3_Vector[2].y - vec3_Vector[2].x * vec3_Vector[1].y)
+                           / ((vec3_Vector[1].y - vec3_Vector[2].y) * vec3_Vector[0].x + (vec3_Vector[2].x - vec3_Vector[1].x) * vec3_Vector[0].y + vec3_Vector[1].x * vec3_Vector[2].y - vec3_Vector[2].x * vec3_Vector[1].y);
+            double beta = ((vec3_Vector[2].y - vec3_Vector[0].y) * i + (vec3_Vector[0].x - vec3_Vector[2].x) * j + vec3_Vector[2].x * vec3_Vector[0].y - vec3_Vector[0].x * vec3_Vector[2].y)
+                          / ((vec3_Vector[1].y - vec3_Vector[2].y) * vec3_Vector[0].x + (vec3_Vector[2].x - vec3_Vector[1].x) * vec3_Vector[0].y + vec3_Vector[1].x * vec3_Vector[2].y - vec3_Vector[2].x * vec3_Vector[1].y);
+            double gamma = 1 - alpha - beta;
+
+            // If the point is inside the triangle
+            if (alpha >= 0 && beta >= 0 && gamma >= 0) {
+                // Compute the depth (z) of the fragment using barycentric interpolation
+                double depth = alpha * vec3_Vector[0].z + beta * vec3_Vector[1].z + gamma * vec3_Vector[2].z;
+
+                // Perform depth test
+                if (depth < depthBuffer[i][j]) {
+                    // Update the depth buffer
+                    depthBuffer[i][j] = depth;
+
+                    // Compute the interpolated color
+                    Color c0 = color_Vector[0];
+                    Color c1 = color_Vector[1];
+                    Color c2 = color_Vector[2];
+                    c0.r = c0.r * alpha;
+                    c0.g = c0.g * alpha;
+                    c0.b = c0.b * alpha;
+                    c1.r = c1.r * beta;
+                    c1.g = c1.g * beta;
+                    c1.b = c1.b * beta;
+                    c2.r = c2.r * gamma;
+                    c2.g = c2.g * gamma;
+                    c2.b = c2.b * gamma;
+
+                    // Write the interpolated color to the image
+                    image[i][j].r = c0.r + c1.r + c2.r;
+                    image[i][j].g = c0.g + c1.g + c2.g;
+                    image[i][j].b = c0.b + c1.b + c2.b;
+                }
+            }
+        }
+    }
+}
+
 
 bool visible(double den, double num, double &tE, double &tL) {
     if(den > 0){

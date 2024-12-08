@@ -9,6 +9,9 @@
 #include "Camera.h"
 #include "Mesh.h"
 
+
+std::vector<std::vector<double>> depthBuffer;
+
 class Scene
 {
 public:
