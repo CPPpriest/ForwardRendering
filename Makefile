@@ -38,3 +38,10 @@ run: $(TARGET)
 	fi; \
 	./$(TARGET) $(input); \
 	make move_ppm
+
+# Test all XML files in the inputs directory
+test: $(TARGET)
+	@for file in $(wildcard inputs/*.xml); do \
+		echo "Running on $$file..."; \
+		make run input=$$file; \
+	done

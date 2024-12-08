@@ -41,3 +41,41 @@ $ make run input=inputs/empty_box_cd.xml
 
 ## 9. Output Rendering
 - Write the final image to a `.ppm` file in the resolution specified in the input file.
+
+
+
+
+
+# Structure
+
+-Implement forwardRenderingPipeline(camera) method of scene:
+            // do forward rendering pipeline operations
+            scene->forwardRenderingPipeline(scene->cameras[i]);
+
+
+
+-Scene members:
+	
+    // Objects
+    std::vector<std::vector<Color> > image;
+    std::vector<Vec3 *> vertices;
+    std::vector<Mesh *> meshes;
+
+    // Coloring
+    Color backgroundColor;
+    std::vector<Color *> colorsOfVertices;
+    int makeBetweenZeroAnd255(double value);
+
+    // Culling
+    bool cullingEnabled;
+	
+    // Modelling Transformations
+	std::vector<Scaling *> scalings;
+	std::vector<Rotation *> rotations;
+	std::vector<Translation *> translations;
+	
+    
+- forwardRenderingPipeline:
+    - Take camera as input
+    - Render each object according to scene members
+    - Write on image according to given camera

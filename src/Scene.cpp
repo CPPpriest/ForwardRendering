@@ -355,10 +355,475 @@ void Scene::convertPPMToPNG(string ppmFileName, int osType)
 }
 
 
+
+
+
+
+
+
+
+
+// HELPERS BEGIN //
+
+void multiplyVec4WithScalar(Vec4 &vec4, double d) {
+    vec4.x *= d;
+    vec4.y *= d;
+    vec4.z *= d;
+    vec4.t *= d;
+}
+
+void line_rasterization(Vec4 first_point, Vec4 second_point, Color first_color, Color second_color, Matrix4 viewport_matrix4, Camera *pCamera, std::vector<std::vector<Color> >& image) {
+    Vec4 first_point_viewport = multiplyMatrixWithVec4(viewport_matrix4, first_point);
+    Vec4 second_point_viewport = multiplyMatrixWithVec4(viewport_matrix4, second_point);
+
+    // calculate the slope of the line
+    double slope = (second_point_viewport.y - first_point_viewport.y) / (second_point_viewport.x - first_point_viewport.x);
+    int x;
+    int y;
+    double x1_x0 = abs(second_point_viewport.x - first_point_viewport.x);
+    double y1_y0 = abs(second_point_viewport.y - first_point_viewport.y);
+    if(slope >= 0){
+        x = min(first_point_viewport.x, second_point_viewport.x);
+        y = min(first_point_viewport.y, second_point_viewport.y);
+    }
+    else if(slope < -1){
+        x = max(first_point_viewport.x, second_point_viewport.x);
+        y = min(first_point_viewport.y, second_point_viewport.y);
+    }
+    else {
+        x = min(first_point_viewport.x, second_point_viewport.x);
+        y = max(first_point_viewport.y, second_point_viewport.y);
+    }
+    if(slope < 1 && slope >= 0){
+        double d = 2 * y1_y0 - x1_x0;
+        double dE = 2 * y1_y0;
+        double dNE = 2 * (y1_y0 - x1_x0);
+        while(x <= max(first_point_viewport.x, second_point_viewport.x)){
+            image[x][y].r = round((first_color.r * abs(x - second_point_viewport.x) + second_color.r * abs(x - first_point_viewport.x)) / x1_x0);
+            image[x][y].g = round((first_color.g * abs(x - second_point_viewport.x) + second_color.g * abs(x - first_point_viewport.x)) / x1_x0);
+            image[x][y].b = round((first_color.b * abs(x - second_point_viewport.x) + second_color.b * abs(x - first_point_viewport.x)) / x1_x0);
+            if(d <= 0){
+                d += dE;
+                x++;
+            }
+            else{
+                d += dNE;
+                x++;
+                y++;
+            }
+        }
+    }
+    else if(slope >= 1){
+        double d = 2 * x1_x0 - y1_y0;
+        double dE = 2 * x1_x0;
+        double dNE = 2 * (x1_x0 - y1_y0);
+        while(y <= max(first_point_viewport.y, second_point_viewport.y)){
+            image[x][y].r = round((first_color.r * abs(y - second_point_viewport.y) + second_color.r * abs(y - first_point_viewport.y)) / y1_y0);
+            image[x][y].g = round((first_color.g * abs(y - second_point_viewport.y) + second_color.g * abs(y - first_point_viewport.y)) / y1_y0);
+            image[x][y].b = round((first_color.b * abs(y - second_point_viewport.y) + second_color.b * abs(y - first_point_viewport.y)) / y1_y0);
+            if(d <= 0){
+                d += dE;
+                y++;
+            }
+            else{
+                d += dNE;
+                x++;
+                y++;
+            }
+        }
+    }
+    else if(slope < -1){
+        double d = 2 * x1_x0 - y1_y0;
+        double dE = 2 * x1_x0;
+        double dNE = 2 * (x1_x0 - y1_y0);
+        while(y < max(first_point_viewport.y, second_point_viewport.y)){
+            image[x][y].r = round((first_color.r * abs(y - second_point_viewport.y) + second_color.r * abs(y - first_point_viewport.y)) / y1_y0);
+            image[x][y].g = round((first_color.g * abs(y - second_point_viewport.y) + second_color.g * abs(y - first_point_viewport.y)) / y1_y0);
+            image[x][y].b = round((first_color.b * abs(y - second_point_viewport.y) + second_color.b * abs(y - first_point_viewport.y)) / y1_y0);
+            if(d <= 0){
+                d += dE;
+                y++;
+            }
+            else{
+                d += dNE;
+                x--;
+                y++;
+            }
+        }
+    }
+    else{
+        double d = 2 * y1_y0 - x1_x0;
+        double dE = 2 * y1_y0;
+        double dNE = 2 * (y1_y0 - x1_x0);
+        while(x < max(first_point_viewport.x, second_point_viewport.x)){
+            image[x][y].r = round((first_color.r * abs(x - second_point_viewport.x) + second_color.r * abs(x - first_point_viewport.x)) / x1_x0);
+            image[x][y].g = round((first_color.g * abs(x - second_point_viewport.x) + second_color.g * abs(x - first_point_viewport.x)) / x1_x0);
+            image[x][y].b = round((first_color.b * abs(x - second_point_viewport.x) + second_color.b * abs(x - first_point_viewport.x)) / x1_x0);
+            if(d <= 0){
+                d += dE;
+                x++;
+            }
+            else{
+                d += dNE;
+                x++;
+                y--;
+            }
+        }
+    }
+}
+
+void rasterization(vector<Vec4> pVector, vector<Color> color_Vector, Matrix4 pMatrix4, Camera* camera, std::vector<std::vector<Color> >& image){
+    for (int i = 0; i < pVector.size(); ++i) {
+        multiplyVec4WithScalar(pVector[i], 1/pVector[i].t);
+        pVector[i] = multiplyMatrixWithVec4(pMatrix4, pVector[i]);
+    }
+    //take the minimum and maximum x and y values
+    int minX = pVector[0].x;
+    int maxX = pVector[0].x;
+    int minY = pVector[0].y;
+    int maxY = pVector[0].y;
+    for (int i = 1; i < pVector.size(); ++i) {
+        if (pVector[i].x < minX) {
+            minX = pVector[i].x;
+        }
+        if (pVector[i].x > maxX) {
+            maxX = pVector[i].x;
+        }
+        if (pVector[i].y < minY) {
+            minY = pVector[i].y;
+        }
+        if (pVector[i].y > maxY) {
+            maxY = pVector[i].y;
+        }
+    }
+    if(minX < 0) minX = 0;
+    if(minX > camera->horRes -1 )   minX = camera->horRes -1;
+    if(minY < 0) minY = 0;
+    if(minY > camera->verRes -1 )   minY = camera->verRes -1;
+    if(maxX < 0) maxX = 0;
+    if(maxX > camera->horRes -1 )   maxX = camera->horRes -1;
+    if(maxY < 0) maxY = 0;
+    if(maxY > camera->verRes -1 )   maxY = camera->verRes -1;
+    // create Vec3 vector using the pVector by discarding t value
+    vector<Vec3> vec3_Vector;
+    for (int i = 0; i < pVector.size(); ++i) {
+        Vec3 temp = Vec3(pVector[i].x, pVector[i].y, pVector[i].z, pVector[i].colorId);
+        vec3_Vector.push_back(temp);
+    }
+    // according to rasterization algorithm on slides 8-29, midpoint algorithm with baricentric coordinates
+    for(int i=minX; i<=maxX; i++){
+        for(int j=minY; j<=maxY; j++){
+            // get the baricentric coordinates of vec3_Vector[0], vec3_Vector[1], vec3_Vector[2]
+            double alpha = ((vec3_Vector[1].y - vec3_Vector[2].y)*i + (vec3_Vector[2].x - vec3_Vector[1].x)*j + vec3_Vector[1].x*vec3_Vector[2].y - vec3_Vector[2].x*vec3_Vector[1].y)
+                           / ((vec3_Vector[1].y - vec3_Vector[2].y)*vec3_Vector[0].x + (vec3_Vector[2].x - vec3_Vector[1].x)*vec3_Vector[0].y + vec3_Vector[1].x*vec3_Vector[2].y - vec3_Vector[2].x*vec3_Vector[1].y);
+            double beta = ((vec3_Vector[2].y - vec3_Vector[0].y)*i + (vec3_Vector[0].x - vec3_Vector[2].x)*j + vec3_Vector[2].x*vec3_Vector[0].y - vec3_Vector[0].x*vec3_Vector[2].y)
+                          / ((vec3_Vector[1].y - vec3_Vector[2].y)*vec3_Vector[0].x + (vec3_Vector[2].x - vec3_Vector[1].x)*vec3_Vector[0].y + vec3_Vector[1].x*vec3_Vector[2].y - vec3_Vector[2].x*vec3_Vector[1].y);
+            double gamma = 1 - alpha - beta;
+            // if the point is inside the triangle
+            if(alpha >= 0 && beta >= 0 && gamma >= 0){
+                // create the c0 c1 c2
+                Color c0 = color_Vector[0];
+                Color c1 = color_Vector[1];
+                Color c2 = color_Vector[2];
+                c0.r = c0.r * alpha;
+                c0.g = c0.g * alpha;
+                c0.b = c0.b * alpha;
+                c1.r = c1.r * beta;
+                c1.g = c1.g * beta;
+                c1.b = c1.b * beta;
+                c2.r = c2.r * gamma;
+                c2.g = c2.g * gamma;
+                c2.b = c2.b * gamma;
+                // add them together
+                image[i][j].r = c0.r + c1.r + c2.r;
+                image[i][j].g = c0.g + c1.g + c2.g;
+                image[i][j].b = c0.b + c1.b + c2.b;
+            }
+        }
+    }
+}
+
+bool visible(double den, double num, double &tE, double &tL) {
+    if(den > 0){
+        double t = num/den;
+        if(t > tL) return false;
+        else if(t > tE) tE = t;
+    }
+    else if(den < 0){
+        double t = num/den;
+        if(t < tE) return false;
+        else if(t < tL) tL = t;
+    }
+    else if(num > 0) return false;
+    return true;
+}
+
+bool clipping(Vec4 &point1, Vec4 &point2, Color &color1, Color &color2) {
+    double tE = 0, tL = 1;
+    bool visible_var = false;
+
+    point1.x /= point1.t;
+    point1.y /= point1.t;
+    point1.z /= point1.t;
+    point1.t /= point1.t;
+    point2.x /= point2.t;
+    point2.y /= point2.t;
+    point2.z /= point2.t;
+    point2.t /= point2.t;
+
+    double dx = point2.x - point1.x;
+    double dy = point2.y - point1.y;
+    double dz = point2.z - point1.z;
+
+    Color diff_color;
+    diff_color.r = color2.r - color1.r;
+    diff_color.g = color2.g - color1.g;
+    diff_color.b = color2.b - color1.b;
+
+
+    if(visible(dx,-1-point1.x,tE,tL)) {
+        if(visible(-dx,point1.x-1,tE,tL)) {
+            if(visible(dy,-1-point1.y,tE,tL)) {
+                if(visible(-dy,point1.y-1,tE,tL)) {
+                    if(visible(dz,-1-point1.z,tE,tL)) {
+                        if(visible(-dz,point1.z-1,tE,tL)) {
+                            visible_var = true;
+                            if(tL < 1) {
+                                point2.x = point1.x + tL*dx;
+                                point2.y = point1.y + tL*dy;
+                                point2.z = point1.z + tL*dz;
+                                color2.b = color1.b + diff_color.b * tL;
+                                color2.g = color1.g + diff_color.g * tL;
+                                color2.r = color1.r + diff_color.r * tL;
+
+                            }
+                            if(tE > 0) {
+                                point1.x = point1.x + tE*dx;
+                                point1.y = point1.y + tE*dy;
+                                point1.z = point1.z + tE*dz;
+                                color1.b = color1.b + diff_color.b * tE;
+                                color1.g = color1.g + diff_color.g * tE;
+                                color1.r = color1.r + diff_color.r * tE;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return visible_var;
+
+}
+
+void getTransformationMatrix(Matrix4 &transformation_matrix, Mesh *mesh, Scene* scene) {
+    for (int i = 0; i < mesh->numberOfTransformations; i++) {
+        int transformationId = mesh->transformationIds[i];
+        char transformationType = mesh->transformationTypes[i];
+        switch (transformationType) {
+            case 's': {
+				// Assuming you have access to sx, sy, sz for the current scaling
+				double sx = scene->scalings[transformationId - 1]->sx;
+				double sy = scene->scalings[transformationId - 1]->sy;
+				double sz = scene->scalings[transformationId - 1]->sz;
+
+				// Create an identity matrix for scaling
+				Matrix4 scalingMatrix = getIdentityMatrix();
+				scalingMatrix.values[0][0] = sx;
+				scalingMatrix.values[1][1] = sy;
+				scalingMatrix.values[2][2] = sz;
+
+				// Multiply the transformation_matrix with scalingMatrix and store the result in transformation_matrix
+				transformation_matrix = multiplyMatrixWithMatrix(scalingMatrix, transformation_matrix);
+				break;
+                // this->scalings[transformationId - 1]->applyScaling(transformation_matrix);
+                // break;
+                }
+            case 'r': {
+				 // Assuming you have access to the angle and axis components (ux, uy, uz) for the current rotation
+                double angle = scene->rotations[transformationId - 1]->angle;
+                double ux = scene->rotations[transformationId - 1]->ux;
+                double uy = scene->rotations[transformationId - 1]->uy;
+                double uz = scene->rotations[transformationId - 1]->uz;
+
+                // Create an identity matrix for rotation
+                Matrix4 rotationMatrix = getIdentityMatrix();
+
+                // Calculate cosine, sine, and (1 - cosine)
+                double c = cos(angle * M_PI / 180.0);
+                double s = sin(angle * M_PI / 180.0);
+                double t = 1 - c;
+
+                // Fill the rotation matrix
+                rotationMatrix.values[0][0] = t * ux * ux + c;
+                rotationMatrix.values[0][1] = t * ux * uy - s * uz;
+                rotationMatrix.values[0][2] = t * ux * uz + s * uy;
+                rotationMatrix.values[1][0] = t * ux * uy + s * uz;
+                rotationMatrix.values[1][1] = t * uy * uy + c;
+                rotationMatrix.values[1][2] = t * uy * uz - s * ux;
+                rotationMatrix.values[2][0] = t * ux * uz - s * uy;
+                rotationMatrix.values[2][1] = t * uy * uz + s * ux;
+                rotationMatrix.values[2][2] = t * uz * uz + c;
+
+                // Multiply the transformation_matrix with rotationMatrix and store the result in transformation_matrix
+                transformation_matrix = multiplyMatrixWithMatrix(rotationMatrix, transformation_matrix);
+                break;
+                // this->rotations[transformationId - 1]->applyRotation(transformation_matrix);
+                // break;
+                }
+            case 't': {
+                 // Assuming you have access to the translation values (tx, ty, tz) for the current transformation
+                double tx = scene->translations[transformationId - 1]->tx;
+                double ty = scene->translations[transformationId - 1]->ty;
+                double tz = scene->translations[transformationId - 1]->tz;
+
+                // Create an identity matrix for translation
+                Matrix4 translationMatrix = getIdentityMatrix();
+
+                // Set the translation values
+                translationMatrix.values[0][3] = tx;
+                translationMatrix.values[1][3] = ty;
+                translationMatrix.values[2][3] = tz;
+
+                // Multiply the transformation_matrix with translationMatrix and store the result in transformation_matrix
+                transformation_matrix = multiplyMatrixWithMatrix(translationMatrix, transformation_matrix);
+                break;
+                // this->translations[transformationId - 1]->applyTranslation(transformation_matrix);
+                // break;
+                }
+            default:
+                break;
+        }
+    }
+}
+
+vector<Vec4> getTransformedPoints(Triangle &triangle, Matrix4 &matrix4, std::vector<Vec3 *> vertices) {
+    vector<Vec4> transformedPoints;
+    Vec3 first_vec = *vertices[triangle.vertexIds[0] - 1];
+    Vec3 second_vec = *vertices[triangle.vertexIds[1]-1];
+    Vec3 third_vec = *vertices[triangle.vertexIds[2]-1];
+
+
+    Vec4 first_vec4 = Vec4(first_vec.x, first_vec.y, first_vec.z, 1, first_vec.colorId);
+    Vec4 second_vec4 = Vec4(second_vec.x, second_vec.y, second_vec.z, 1, second_vec.colorId);
+    Vec4 third_vec4 = Vec4(third_vec.x, third_vec.y, third_vec.z, 1, third_vec.colorId);
+
+    transformedPoints.push_back(multiplyMatrixWithVec4(matrix4, first_vec4));
+    transformedPoints.push_back(multiplyMatrixWithVec4(matrix4, second_vec4));
+    transformedPoints.push_back(multiplyMatrixWithVec4(matrix4, third_vec4));
+
+    return transformedPoints;
+}
+
+vector<Color> getColorsOfTriangle(Triangle triangle, std::vector<Vec3 *> vertices, Scene* scene) {
+    vector<Color> colors;
+    Vec3 first_vec = *vertices[triangle.vertexIds[0]-1];
+    Vec3 second_vec = *vertices[triangle.vertexIds[1]-1];
+    Vec3 third_vec = *vertices[triangle.vertexIds[2]-1];
+
+    colors.push_back(*(scene->colorsOfVertices[first_vec.colorId-1]) );
+    colors.push_back(*(scene->colorsOfVertices[second_vec.colorId-1]) );
+    colors.push_back(*(scene->colorsOfVertices[third_vec.colorId-1]));
+    return colors;
+}
+
+// HELPERS END //
+
 /*
 	Transformations, clipping, culling, rasterization are done here.
 */
 void Scene::forwardRenderingPipeline(Camera *camera)
 {
-	// TODO: Implement this function
+    // 1 - Modeling Transformation
+    for (auto mesh : this->meshes) {
+        Matrix4 modeling_matrix = getIdentityMatrix();
+        getTransformationMatrix(modeling_matrix, mesh, this);
+
+        // 2 - Camera Transformation
+        Matrix4 cameraMatrix = getIdentityMatrix();
+        cameraMatrix.values[0][3] = -camera->position.x;
+        cameraMatrix.values[1][3] = -camera->position.y;
+        cameraMatrix.values[2][3] = -camera->position.z;
+
+        Matrix4 rotationMatrix = getIdentityMatrix();
+        rotationMatrix.values[0][0] = camera->u.x;
+        rotationMatrix.values[0][1] = camera->u.y;
+        rotationMatrix.values[0][2] = camera->u.z;
+        rotationMatrix.values[1][0] = camera->v.x;
+        rotationMatrix.values[1][1] = camera->v.y;
+        rotationMatrix.values[1][2] = camera->v.z;
+        rotationMatrix.values[2][0] = camera->w.x;
+        rotationMatrix.values[2][1] = camera->w.y;
+        rotationMatrix.values[2][2] = camera->w.z;
+
+        Matrix4 camera_transformation_matrix = multiplyMatrixWithMatrix(rotationMatrix, cameraMatrix);
+
+        // 3 - Projection Transformation
+        Matrix4 projection_transformation_matrix = getIdentityMatrix();
+        if (camera->projectionType == 1) {
+            projection_transformation_matrix.values[0][0] = 2 * camera->near / (camera->right - camera->left);
+            projection_transformation_matrix.values[1][1] = 2 * camera->near / (camera->top - camera->bottom);
+            projection_transformation_matrix.values[0][2] = (camera->right + camera->left) / (camera->right - camera->left);
+            projection_transformation_matrix.values[1][2] = (camera->top + camera->bottom) / (camera->top - camera->bottom);
+            projection_transformation_matrix.values[2][2] = -(camera->far + camera->near) / (camera->far - camera->near);
+            projection_transformation_matrix.values[2][3] = -2 * camera->far * camera->near / (camera->far - camera->near);
+            projection_transformation_matrix.values[3][2] = -1;
+            projection_transformation_matrix.values[3][3] = 0;
+        } else {
+            projection_transformation_matrix.values[0][0] = 2 / (camera->right - camera->left);
+            projection_transformation_matrix.values[1][1] = 2 / (camera->top - camera->bottom);
+            projection_transformation_matrix.values[2][2] = -2 / (camera->far - camera->near);
+            projection_transformation_matrix.values[0][3] = -(camera->right + camera->left) / (camera->right - camera->left);
+            projection_transformation_matrix.values[1][3] = -(camera->top + camera->bottom) / (camera->top - camera->bottom);
+            projection_transformation_matrix.values[2][3] = -(camera->far + camera->near) / (camera->far - camera->near);
+        }
+
+        // 4 - Viewport Transformation
+        Matrix4 viewport_transformation_matrix = getIdentityMatrix();
+        viewport_transformation_matrix.values[0][0] = camera->horRes / 2.0;
+        viewport_transformation_matrix.values[1][1] = camera->verRes / 2.0;
+        viewport_transformation_matrix.values[0][3] = (camera->horRes - 1) / 2.0;
+        viewport_transformation_matrix.values[1][3] = (camera->verRes - 1) / 2.0;
+
+        // Combine Modeling, Camera, and Projection Transformations
+        Matrix4 viewing_without_vp = multiplyMatrixWithMatrix(
+            projection_transformation_matrix,
+            multiplyMatrixWithMatrix(camera_transformation_matrix, modeling_matrix)
+        );
+
+        // 5 - Culling
+        for (auto triangle : mesh->triangles) {
+            vector<Vec4> transformedPoints = getTransformedPoints(triangle, viewing_without_vp, this->vertices);
+            vector<Color> colors = getColorsOfTriangle(triangle, this->vertices , this);
+
+            if (this->cullingEnabled) {
+                Vec3 first_edge = Vec3(transformedPoints[1].x - transformedPoints[0].x, 
+                                       transformedPoints[1].y - transformedPoints[0].y, 
+                                       transformedPoints[1].z - transformedPoints[0].z, 0);
+                Vec3 second_edge = Vec3(transformedPoints[2].x - transformedPoints[0].x, 
+                                        transformedPoints[2].y - transformedPoints[0].y, 
+                                        transformedPoints[2].z - transformedPoints[0].z, 0);
+                Vec3 normal = normalizeVec3(crossProductVec3(first_edge, second_edge));
+                if (dotProductVec3(normal, Vec3(transformedPoints[0].x, transformedPoints[0].y, transformedPoints[0].z, 0)) < 0) {
+                    continue;
+                }
+            }
+
+            // 6 - Clipping
+            if (mesh->type == 0) {
+                Vec4 p1 = transformedPoints[0], p2 = transformedPoints[1], p3 = transformedPoints[2];
+                Color c1 = colors[0], c2 = colors[1], c3 = colors[2];
+                bool edge1 = clipping(p1, p2, c1, c2);
+                bool edge2 = clipping(p2, p3, c2, c3);
+                bool edge3 = clipping(p3, p1, c3, c1);
+
+                // 7 - Rasterization (Wireframe Mode)
+                if (edge1) line_rasterization(p1, p2, c1, c2, viewport_transformation_matrix, camera, image);
+                if (edge2) line_rasterization(p2, p3, c2, c3, viewport_transformation_matrix, camera, image);
+                if (edge3) line_rasterization(p3, p1, c3, c1, viewport_transformation_matrix, camera, image);
+            } else {
+                // 7 - Rasterization (Solid Mode)
+                rasterization(transformedPoints, colors, viewport_transformation_matrix, camera, image);
+            }
+        }
+    }
 }
