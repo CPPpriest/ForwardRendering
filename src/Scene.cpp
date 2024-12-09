@@ -404,6 +404,10 @@ void Scene::convertPPMToPNG(string ppmFileName, int osType)
 
 
 
+
+
+
+
 // HELPERS BEGIN //
 
 void multiplyVec4WithScalar(Vec4 &vec4, double d) {
