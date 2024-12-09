@@ -563,6 +563,10 @@ bool visible(double den, double num, double &tE, double &tL) {
     return true;
 }
 
+
+
+
+/*
 bool clipping(Vec4 &point1, Vec4 &point2, Color &color1, Color &color2) {
     double tE = 0, tL = 1;
     bool visible_var = false;
@@ -624,6 +628,73 @@ bool clipping(Vec4 &point1, Vec4 &point2, Color &color1, Color &color2) {
     return visible_var;
 
 }
+
+*/
+bool normalizePoint(Vec4 &point) {
+    point.x /= point.t;
+    point.y /= point.t;
+    point.z /= point.t;
+    point.t = 1; // Normalized value of t
+    return true;
+}
+
+Color computeColorDifference(const Color &color1, const Color &color2) {
+    Color diff_color;
+    diff_color.r = color2.r - color1.r;
+    diff_color.g = color2.g - color1.g;
+    diff_color.b = color2.b - color1.b;
+    return diff_color;
+}
+
+void interpolatePoint(Vec4 &point, const Vec4 &start, double t, double dx, double dy, double dz) {
+    point.x = start.x + t * dx;
+    point.y = start.y + t * dy;
+    point.z = start.z + t * dz;
+}
+
+void interpolateColor(Color &color, const Color &start, const Color &diff_color, double t) {
+    color.r = start.r + diff_color.r * t;
+    color.g = start.g + diff_color.g * t;
+    color.b = start.b + diff_color.b * t;
+}
+
+bool clipping(Vec4 &point1, Vec4 &point2, Color &color1, Color &color2) {
+    double tE = 0, tL = 1;
+    bool visible_var = false;
+
+    // Normalize points
+    normalizePoint(point1);
+    normalizePoint(point2);
+
+    // Compute differences
+    double dx = point2.x - point1.x;
+    double dy = point2.y - point1.y;
+    double dz = point2.z - point1.z;
+    Color diff_color = computeColorDifference(color1, color2);
+
+    // Perform visibility checks and updates
+    if (visible(dx, -1 - point1.x, tE, tL) &&
+        visible(-dx, point1.x - 1, tE, tL) &&
+        visible(dy, -1 - point1.y, tE, tL) &&
+        visible(-dy, point1.y - 1, tE, tL) &&
+        visible(dz, -1 - point1.z, tE, tL) &&
+        visible(-dz, point1.z - 1, tE, tL)) {
+
+        visible_var = true;
+
+        if (tL < 1) {
+            interpolatePoint(point2, point1, tL, dx, dy, dz);
+            interpolateColor(color2, color1, diff_color, tL);
+        }
+        if (tE > 0) {
+            interpolatePoint(point1, point1, tE, dx, dy, dz);
+            interpolateColor(color1, color1, diff_color, tE);
+        }
+    }
+
+    return visible_var;
+}
+
 
 vector<Vec4> getTransformedPoints(Triangle &triangle, Matrix4 &matrix4, std::vector<Vec3 *> vertices) {
     vector<Vec4> transformedPoints;
