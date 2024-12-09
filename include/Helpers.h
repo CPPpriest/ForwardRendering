@@ -46,6 +46,7 @@ Vec3 subtractVec3(Vec3 a, Vec3 b);
  */
 Vec3 multiplyVec3WithScalar(Vec3 v, double c);
 
+
 /*
  * Prints elements in a vec3. Can be used for debugging purposes.
  */
@@ -71,5 +72,15 @@ Matrix4 multiplyMatrixWithMatrix(Matrix4 m1, Matrix4 m2);
  * Multiply matrix m (Matrix4) with vector v (vec4) and store the result in vector r (vec4).
  */
 Vec4 multiplyMatrixWithVec4(Matrix4 m, Vec4 v);
+
+
+//--------------------------------------------------------------------------//
+//--------------------------------------------------------------------------//
+//--------------------------------------------------------------------------//
+
+
+
+Vec4 multiplyVec4WithScalar(Vec4 v, double c);
+
 
 #endif

@@ -10,7 +10,9 @@
 #include "Mesh.h"
 
 
-std::vector<std::vector<double>> depthBuffer;
+#include "View_Transformations.h"
+
+
 
 class Scene
 {
@@ -34,6 +36,8 @@ public:
 	void writeImageToPPMFile(Camera *camera);
 	void convertPPMToPNG(std::string ppmFileName, int osType);
 	void forwardRenderingPipeline(Camera *camera);
+
+	std::vector<std::vector<double>> depthBuffer;
 };
 
 #endif

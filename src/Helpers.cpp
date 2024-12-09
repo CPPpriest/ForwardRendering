@@ -67,6 +67,9 @@ Vec3 multiplyVec3WithScalar(Vec3 v, double c)
     return Vec3(v.x * c, v.y * c, v.z * c);
 }
 
+
+
+
 /*
  * Prints elements in a vec3. Can be used for debugging purposes.
  */
@@ -163,4 +166,15 @@ Vec4 multiplyMatrixWithVec4(Matrix4 m, Vec4 v)
     }
 
     return Vec4(values[0], values[1], values[2], values[3], v.colorId);
+}
+
+
+
+//--------------------------------------------------------------------------//
+//--------------------------------------------------------------------------//
+//--------------------------------------------------------------------------//
+
+Vec4 multiplyVec4WithScalar(Vec4 v, double c)
+{
+    return Vec4(v.x * c, v.y * c, v.z * c , v.t * c);
 }
