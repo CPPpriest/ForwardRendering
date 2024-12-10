@@ -32,11 +32,11 @@ using namespace std;
 
 
 
-Matrix4 getCameraTransformationMatrix(Camera *camera);
+Matrix4 getCameraMat(Camera *camera);
 
-Matrix4 getProjectionTransformationMatrix(Camera *camera);
+Matrix4 getProjectionMat(Camera *camera);
 
-Matrix4 getViewportTransformationMatrix(Camera *camera);
+Matrix4 getViewportMat(Camera *camera);
 
 
 
