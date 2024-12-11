@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 #include <cmath>
-
 #include "tinyxml2.h"
 #include "Triangle.h"
 #include "Helpers.h"
@@ -14,6 +13,7 @@
 
 #include "Model_Transformations.h"
 #include "View_Transformations.h"
+#include "Rasterize.h"
 
 using namespace tinyxml2;
 using namespace std;
@@ -342,439 +342,73 @@ void Scene::convertPPMToPNG(string ppmFileName, int osType)
 }
 
 
-
-
-
-void line_rasterization(Vec4 first_point, Vec4 second_point, Color first_color, Color second_color, Matrix4 viewport_matrix4, Camera *pCamera, std::vector<std::vector<Color> >& image) {
-    Vec4 first_point_viewport = multiplyMatrixWithVec4(viewport_matrix4, first_point);
-    Vec4 second_point_viewport = multiplyMatrixWithVec4(viewport_matrix4, second_point);
-
-    // calculate the slope of the line
-    double slope = (second_point_viewport.y - first_point_viewport.y) / (second_point_viewport.x - first_point_viewport.x);
-
-    double dx = abs(second_point_viewport.x - first_point_viewport.x);
-    double dy = abs(second_point_viewport.y - first_point_viewport.y);
-
-    int x = min(first_point_viewport.x, second_point_viewport.x);  
-    int y = min(first_point_viewport.y, second_point_viewport.y);
-
-
-    // ( # , -1 )
-    if(slope <= -1)
-    {
-        x = max(first_point_viewport.x, second_point_viewport.x);
-
-        double d = 2 * dx - dy;
-        double dE = 2 * dx;
-        double dNE = 2 * (dx - dy);
-        while(y < max(first_point_viewport.y, second_point_viewport.y))
-        {
-            image[x][y].r = round((first_color.r * abs(y - second_point_viewport.y) + second_color.r * abs(y - first_point_viewport.y)) / dy);
-            image[x][y].g = round((first_color.g * abs(y - second_point_viewport.y) + second_color.g * abs(y - first_point_viewport.y)) / dy);
-            image[x][y].b = round((first_color.b * abs(y - second_point_viewport.y) + second_color.b * abs(y - first_point_viewport.y)) / dy);         
-            
-            if(d <= 0){
-                d += dE;
-                y++;
-            }
-            else{
-                d += dNE;
-                x--;
-                y++;
-            }
-        }
-
-        return;
-
-    }
-    
-    // ( -1 , 0 )
-    if(slope < 0) 
-    {
-        y = max(first_point_viewport.y, second_point_viewport.y);
-        
-        double d = 2 * dy - dx;
-        double dE = 2 * dy;
-        double dNE = 2 * (dy - dx);
-        while(x < max(first_point_viewport.x, second_point_viewport.x)){
-            image[x][y].r = round((first_color.r * abs(x - second_point_viewport.x) + second_color.r * abs(x - first_point_viewport.x)) / dx);
-            image[x][y].g = round((first_color.g * abs(x - second_point_viewport.x) + second_color.g * abs(x - first_point_viewport.x)) / dx);
-            image[x][y].b = round((first_color.b * abs(x - second_point_viewport.x) + second_color.b * abs(x - first_point_viewport.x)) / dx);
-            if(d <= 0){
-                d += dE;
-                x++;
-            }
-            else{
-                d += dNE;
-                x++;
-                y--;
-            }
-        }
-        return;
-    }
-
-
-
-    if(slope < 1){
-        double d = 2 * dy - dx;
-        double dE = 2 * dy;
-        double dNE = 2 * (dy - dx);
-        while(x < max(first_point_viewport.x, second_point_viewport.x)){
-            image[x][y].r = round((first_color.r * abs(x - second_point_viewport.x) + second_color.r * abs(x - first_point_viewport.x)) / dx);
-            image[x][y].g = round((first_color.g * abs(x - second_point_viewport.x) + second_color.g * abs(x - first_point_viewport.x)) / dx);
-            image[x][y].b = round((first_color.b * abs(x - second_point_viewport.x) + second_color.b * abs(x - first_point_viewport.x)) / dx);          
-            if(d <= 0){
-                d += dE;
-                x++;
-            }
-            else{
-                d += dNE;
-                x++;
-                y++;
-            }
-        }
-
-        return;
-    }
-
-    if(slope >= 1){
-        double d = 2 * dx - dy;
-        double dE = 2 * dx;
-        double dNE = 2 * (dx - dy);
-        while(y < max(first_point_viewport.y, second_point_viewport.y))
-        {
-            image[x][y].r = round((first_color.r * abs(y - second_point_viewport.y) + second_color.r * abs(y - first_point_viewport.y)) / dy);
-            image[x][y].g = round((first_color.g * abs(y - second_point_viewport.y) + second_color.g * abs(y - first_point_viewport.y)) / dy);
-            image[x][y].b = round((first_color.b * abs(y - second_point_viewport.y) + second_color.b * abs(y - first_point_viewport.y)) / dy);
-            if(d <= 0){
-                d += dE;
-                y++;
-            }
-            else{
-                d += dNE;
-                x++;
-                y++;
-            }
-        }
-        return;
-    }
-
-}
-
-void rasterization(vector<Vec4> pVector, vector<Color> color_Vector, Matrix4 pMatrix4, Camera *camera, std::vector<std::vector<Color>> &image , Scene*scene)
-{
-    for (int i = 0; i < pVector.size(); ++i) {
-        pVector[i] = multiplyVec4WithScalar(pVector[i], 1 / pVector[i].t);
-        pVector[i] = multiplyMatrixWithVec4(pMatrix4, pVector[i]);
-    }
-
-    // Take the minimum and maximum x and y values
-    int minX = pVector[0].x;
-    int maxX = pVector[0].x;
-    int minY = pVector[0].y;
-    int maxY = pVector[0].y;
-    for (int i = 1; i < pVector.size(); ++i) {
-        if (pVector[i].x < minX) {
-            minX = pVector[i].x;
-        }
-        if (pVector[i].x > maxX) {
-            maxX = pVector[i].x;
-        }
-        if (pVector[i].y < minY) {
-            minY = pVector[i].y;
-        }
-        if (pVector[i].y > maxY) {
-            maxY = pVector[i].y;
-        }
-    }
-
-    if (minX < 0) minX = 0;
-    if (minX > camera->horRes - 1) minX = camera->horRes - 1;
-    if (minY < 0) minY = 0;
-    if (minY > camera->verRes - 1) minY = camera->verRes - 1;
-    if (maxX < 0) maxX = 0;
-    if (maxX > camera->horRes - 1) maxX = camera->horRes - 1;
-    if (maxY < 0) maxY = 0;
-    if (maxY > camera->verRes - 1) maxY = camera->verRes - 1;
-
-    // Create Vec3 vector using the pVector by discarding t value
-    vector<Vec3> vec3_Vector;
-    for (int i = 0; i < pVector.size(); ++i) {
-        Vec3 temp = Vec3(pVector[i].x, pVector[i].y, pVector[i].z, pVector[i].colorId);
-        vec3_Vector.push_back(temp);
-    }
-
-    // Rasterization algorithm using barycentric coordinates
-    for (int i = minX; i <= maxX; i++) {
-        for (int j = minY; j <= maxY; j++) {
-            // Get the barycentric coordinates of vec3_Vector[0], vec3_Vector[1], vec3_Vector[2]
-            
-            
-
-            double alpha = (    (vec3_Vector[1].y - vec3_Vector[2].y) * i   +   
-                                (vec3_Vector[2].x - vec3_Vector[1].x) * j   + 
-                                vec3_Vector[1].x * vec3_Vector[2].y         - 
-                                vec3_Vector[2].x * vec3_Vector[1].y
-                            )
-                           
-                           / 
-                           
-                           (    (vec3_Vector[1].y - vec3_Vector[2].y) * vec3_Vector[0].x    +   
-                                (vec3_Vector[2].x - vec3_Vector[1].x) * vec3_Vector[0].y    +   
-                                vec3_Vector[1].x * vec3_Vector[2].y                         -   
-                                vec3_Vector[2].x * vec3_Vector[1].y
-                            );
-            double beta = ((vec3_Vector[2].y - vec3_Vector[0].y) * i + (vec3_Vector[0].x - vec3_Vector[2].x) * j + vec3_Vector[2].x * vec3_Vector[0].y - vec3_Vector[0].x * vec3_Vector[2].y)
-                          / ((vec3_Vector[1].y - vec3_Vector[2].y) * vec3_Vector[0].x + (vec3_Vector[2].x - vec3_Vector[1].x) * vec3_Vector[0].y + vec3_Vector[1].x * vec3_Vector[2].y - vec3_Vector[2].x * vec3_Vector[1].y);
-            double gamma = 1 - alpha - beta;
-
-
-            // If the point is inside the triangle
-            if (alpha >= 0 && beta >= 0 && gamma >= 0) {
-                // Compute the depth (z) of the fragment using barycentric interpolation
-                double depth = alpha * vec3_Vector[0].z + beta * vec3_Vector[1].z + gamma * vec3_Vector[2].z;
-
-                // Perform depth test
-                if (depth < scene->depthBuffer[i][j]) {
-                    // Update the depth buffer
-                    scene->depthBuffer[i][j] = depth;
-
-                    // Compute the interpolated color
-                    Color c0 = color_Vector[0];
-                    Color c1 = color_Vector[1];
-                    Color c2 = color_Vector[2];
-
-
-                    c0.r = c0.r * alpha;
-                    c0.g = c0.g * alpha;
-                    c0.b = c0.b * alpha;
-                    c1.r = c1.r * beta;
-                    c1.g = c1.g * beta;
-                    c1.b = c1.b * beta;
-                    c2.r = c2.r * gamma;
-                    c2.g = c2.g * gamma;
-                    c2.b = c2.b * gamma;
-
-
-                    // Write the interpolated color to the image
-                    image[i][j].r = c0.r + c1.r + c2.r;
-                    image[i][j].g = c0.g + c1.g + c2.g;
-                    image[i][j].b = c0.b + c1.b + c2.b;
-
-
-                }
-            }
-        }
-    }
-}
-
-bool visible(double den, double num, double &tE, double &tL) {
-    if(den > 0){
-        double t = num/den;
-        if(t > tL) return false;
-        else if(t > tE) tE = t;
-    }
-    else if(den < 0){
-        double t = num/den;
-        if(t < tE) return false;
-        else if(t < tL) tL = t;
-    }
-    else if(num > 0) return false;
-    return true;
-}
-
-bool normalizePoint(Vec4 &point) {
-    point.x /= point.t;
-    point.y /= point.t;
-    point.z /= point.t;
-    point.t = 1; // Normalized value of t
-    return true;
-}
-
-Color computeColorDifference(const Color &color1, const Color &color2) {
-    Color diff_color;
-    diff_color.r = color2.r - color1.r;
-    diff_color.g = color2.g - color1.g;
-    diff_color.b = color2.b - color1.b;
-    return diff_color;
-}
-
-void interpolatePoint(Vec4 &point, const Vec4 &start, double t, double dx, double dy, double dz) {
-    point.x = start.x + t * dx;
-    point.y = start.y + t * dy;
-    point.z = start.z + t * dz;
-}
-
-void interpolateColor(Color &color, const Color &start, const Color &diff_color, double t) {
-    color.r = start.r + diff_color.r * t;
-    color.g = start.g + diff_color.g * t;
-    color.b = start.b + diff_color.b * t;
-}
-
-bool clipping(Vec4 &point1, Vec4 &point2, Color &color1, Color &color2) {
-    double tE = 0, tL = 1;
-    bool visible_var = false;
-
-    // Normalize points
-    normalizePoint(point1);
-    normalizePoint(point2);
-
-    // Compute differences
-    double dx = point2.x - point1.x;
-    double dy = point2.y - point1.y;
-    double dz = point2.z - point1.z;
-    Color diff_color = computeColorDifference(color1, color2);
-
-    // Perform visibility checks and updates
-    if (visible(dx, -1 - point1.x, tE, tL) &&
-        visible(-dx, point1.x - 1, tE, tL) &&
-        visible(dy, -1 - point1.y, tE, tL) &&
-        visible(-dy, point1.y - 1, tE, tL) &&
-        visible(dz, -1 - point1.z, tE, tL) &&
-        visible(-dz, point1.z - 1, tE, tL)) {
-
-        visible_var = true;
-
-        if (tL < 1) {
-            interpolatePoint(point2, point1, tL, dx, dy, dz);
-            interpolateColor(color2, color1, diff_color, tL);
-        }
-        if (tE > 0) {
-            interpolatePoint(point1, point1, tE, dx, dy, dz);
-            interpolateColor(color1, color1, diff_color, tE);
-        }
-    }
-
-    return visible_var;
-}
-
-
-vector<Vec4> getTransformedPoints(const Triangle &triangle, const Matrix4 &matrix4, const std::vector<Vec3 *> &vertices) {
-    vector<Vec4> transformedPoints;
-
-    // Helper function to convert Vec3 to Vec4
-    auto convertToVec4 = [](const Vec3 &vec) {
-        return Vec4(vec.x, vec.y, vec.z, 1, vec.colorId);
-    };
-
-    // Transform and store the points
-    for (int vertexId : triangle.vertexIds) {
-        Vec3 &vertex = *vertices[vertexId - 1];
-        Vec4 vertexVec4 = convertToVec4(vertex);
-        transformedPoints.push_back(multiplyMatrixWithVec4(matrix4, vertexVec4));
-    }
-
-    return transformedPoints;
-}
-
-vector<Color> getColorsOfTriangle(const Triangle &triangle, const std::vector<Vec3 *> &vertices, const Scene *scene) {
-    vector<Color> colors;
-
-    // Retrieve and store the colors of the triangle's vertices
-    for (int vertexId : triangle.vertexIds) {
-        Vec3 &vertex = *vertices[vertexId - 1];
-        colors.push_back(*(scene->colorsOfVertices[vertex.colorId - 1]));
-    }
-
-    return colors;
-}
-
-
-
-
-
-
-
-
-
 void Scene::forwardRenderingPipeline(Camera *camera)
 {
-
-    
-    
-    for (auto mesh : this->meshes) {
+    for (auto ms : meshes) {
         
 
         // 1 - Modeling Transformation
-        Matrix4 modeling_matrix = getTransformationMatrix(mesh, scalings , rotations ,translations );
-
+        Matrix4 matModel = getModelMat(ms, scalings , rotations ,translations );
 
         // 2 - Camera Transformation
-        Matrix4 camera_transformation_matrix = getCameraTransformationMatrix(camera);
-
+        Matrix4 matCamera = getCameraMat(camera);
         
-        // Combine Matrices
-        Matrix4 M1 = multiplyMatrixWithMatrix( camera_transformation_matrix , modeling_matrix);
-
+        // Combine Matrices I
+        Matrix4 M1 = multiplyMatrixWithMatrix( matCamera , matModel);
 
         // 3 - Projection Transformation
-        Matrix4  projection_transformation_matrix = getProjectionTransformationMatrix(camera);
+        Matrix4  matProjection = getProjectionMat(camera);
 
-
-        // Combine Matrices
-        Matrix4 M2 = multiplyMatrixWithMatrix( projection_transformation_matrix, M1 );
-
+        // Combine Matrices II
+        Matrix4 M2 = multiplyMatrixWithMatrix( matProjection, M1 );
 
         // 4 - Viewport Transformation
-        Matrix4  viewport_transformation_matrix = getViewportTransformationMatrix(camera);
-
-
-
-
-
-
+        Matrix4  matViewport = getViewportMat(camera);
 
 
         // 5 - Culling , Clipping , Rasterization
-        
-        for (auto triangle : mesh->triangles) {
-            vector<Vec4> transformedPoints = getTransformedPoints(triangle, M2, this->vertices);
-            vector<Color> colors = getColorsOfTriangle(triangle, this->vertices , this);
-
-
-             Vec3 first_edge = Vec3(    transformedPoints[1].x - transformedPoints[0].x, 
-                                        transformedPoints[1].y - transformedPoints[0].y, 
-                                        transformedPoints[1].z - transformedPoints[0].z, 0  );
-
-            Vec3 second_edge = Vec3(    transformedPoints[2].x - transformedPoints[0].x, 
-                                        transformedPoints[2].y - transformedPoints[0].y, 
-                                        transformedPoints[2].z - transformedPoints[0].z, 0  );
-
-            Vec3 normal = normalizeVec3(crossProductVec3(first_edge, second_edge));
-
-
-            if (this->cullingEnabled) {
-                if (dotProductVec3(normal, Vec3(transformedPoints[0].x, transformedPoints[0].y, transformedPoints[0].z, 0)) < 0) 
-                    continue;
-            }
-			else{
-                if (dotProductVec3(normal, Vec3(0, 0, -1, 0)) < 0) {
-                    std::swap(transformedPoints[1], transformedPoints[2]);
-                    std::swap(colors[1], colors[2]);
-                }
-            }
-
-        
-
-            // 6 - Clipping
-            if (mesh->type == 0) {
-                Vec4 p1 = transformedPoints[0], p2 = transformedPoints[1], p3 = transformedPoints[2];
-                Color c1 = colors[0], c2 = colors[1], c3 = colors[2];
-                bool edge1 = clipping(p1, p2, c1, c2);
-                bool edge2 = clipping(p2, p3, c2, c3);
-                bool edge3 = clipping(p3, p1, c3, c1);
-                
-
-                // 7 - Rasterization (Wireframe Mode)
-                if (edge1) line_rasterization(p1, p2, c1, c2, viewport_transformation_matrix, camera, image);
-                if (edge2) line_rasterization(p2, p3, c2, c3, viewport_transformation_matrix, camera, image);
-                if (edge3) line_rasterization(p3, p1, c3, c1, viewport_transformation_matrix, camera, image);
-            } 
-
-            // 7 - Rasterization (Solid Mode)
-            else
-                rasterization(transformedPoints, colors, viewport_transformation_matrix, camera, image, this);
+        for (auto tr : ms->triangles) {
             
-        }
-    }
+            vector<Vec4> points = processTrianglePoints(tr, M2, vertices);
+			Vec4 a = points[0];
+        	Vec4 b = points[1];
+            Vec4 c = points[2];
+
+            vector<Color> colors = getTriangleColors(tr, vertices , this);
+
+			Vec3 e1 = Vec3( b.x - a.x, b.y - a.y, b.z - a.z, 0 );
+            Vec3 e2 = Vec3( c.x - a.x, c.y - a.y, c.z - a.z, 0 );
+
+            Vec3 n = crossProductVec3(e1, e2);
+			n = normalizeVec3(n);
+
+            double temp1 = dotProductVec3(n, Vec3(a.x, a.y, a.z, 0));
+
+			// Triangle not culled => Next Triangle
+            if( (cullingEnabled) &&  ( temp1 < 0 ) )
+                continue;
+			
+			double temp2 = dotProductVec3(n, Vec3(0, 0, -1, 0));
+
+			// CHECK
+			if( (!cullingEnabled ) && ( temp2 > 0) )
+            {
+                swap(b, c);
+                swap(colors[1], colors[2]);
+            }
+
+			// SOLID_MESH
+            if (ms->type == SOLID_MESH) 
+				rasterizeSolid(points, colors, matViewport, camera, image, this); 
+
+			// WIREFRAME_MESH
+            else 
+			{   
+                rasterizeLine(a, b, colors[0], colors[1], matViewport, image);
+                rasterizeLine(b, c, colors[1], colors[2], matViewport, image);
+                rasterizeLine(c, a, colors[2], colors[0], matViewport, image);
+        	}
+		}
+	}
+
 }

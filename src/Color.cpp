@@ -26,3 +26,12 @@ std::ostream &operator<<(std::ostream &os, const Color &c)
     os << std::fixed << std::setprecision(0) << "rgb(" << c.r << ", " << c.g << ", " << c.b << ")";
     return os;
 }
+
+
+Color Color::operator-(const Color &other) const {
+    return Color(
+        r - other.r,
+        g - other.g,
+        b - other.b
+    );
+}

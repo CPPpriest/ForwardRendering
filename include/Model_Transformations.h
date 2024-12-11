@@ -34,7 +34,7 @@ using namespace std;
 
 
 
-Matrix4 getTransformationMatrix(Mesh *mesh, std::vector<Scaling *>  scalings , std::vector<Rotation *> rotations , std::vector<Translation *> translations );
+Matrix4 getModelMat(Mesh *mesh, std::vector<Scaling *>  scalings , std::vector<Rotation *> rotations , std::vector<Translation *> translations );
 
 
 
