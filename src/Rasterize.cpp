@@ -2,31 +2,55 @@
 
 #include <algorithm>
 
-int setRange(int value, int min, int max) {
-    if (value < min) {
-        return min;
-    } else if (value > max) {
-        return max;
-    }
-    return value;
+
+
+int makeBetween(double value)
+{
+	if (value >= 255.0)
+		return 255;
+	if (value <= 0.0)
+		return 0;
+	return (int)(value);
 }
 
 
-bool isVisible(double den, double num, double &tE, double &tL) {
-    if(den > 0){
-        double t = num/den;
-        if(t > tL) return false;
-        else if(t > tE) tE = t;
+
+
+int setRange(int val, int valMin, int valMax) {
+    if (val < valMin) {
+        return valMin;
+    } else if (val > valMax) {
+        return valMax;
     }
-    else if(den < 0){
-        double t = num/den;
-        if(t < tE) return false;
-        else if(t < tL) tL = t;
+    return val;
+}
+
+
+bool isVisible(double d, double val, double &entr, double &lve) {
+    if(d > 0){
+        double t = val/d;
+        if(t > lve) return false;
+        else if(t > entr) entr = t;
     }
-    else if(num > 0) return false;
+    else if(d < 0){
+        double t = val/d;
+        if(t < entr) return false;
+        else if(t < lve) lve = t;
+    }
+    else if(val > 0) return false;
     return true;
 }
 
+
+bool isAllVisible( double dx, double dy, double dz, Vec4 &sp, double &entr, double &lve)
+{
+    return isVisible(dx,    -1 - sp.x, entr, lve) &&
+           isVisible(-dx,    sp.x - 1, entr, lve) &&
+           isVisible(dy,    -1 - sp.y, entr, lve) &&
+           isVisible(-dy,    sp.y - 1, entr, lve) &&
+           isVisible(dz,    -1 - sp.z, entr, lve) &&
+           isVisible(-dz,    sp.z - 1, entr, lve);
+}
 
 
 void interpolatePoint(Vec4 &p, const Vec4 &start, double t, double dx, double dy, double dz) {
@@ -45,15 +69,9 @@ void interpolateColor(Color &color, const Color &start, const Color &diff, doubl
 vector<Vec4> processTrianglePoints(const Triangle &triangle, const Matrix4 &matrix4, const std::vector<Vec3 *> &vertices) {
     vector<Vec4> result;
 
-    // Helper function to convert Vec3 to Vec4
-    auto convertToVec4 = [](const Vec3 &vec) {
-        return Vec4(vec.x, vec.y, vec.z, 1, vec.colorId);
-    };
-
-    // Transform and store the points
     for (int vertexId : triangle.vertexIds) {
         Vec3 &vertex = *vertices[vertexId - 1];
-        Vec4 vertexVec4 = convertToVec4(vertex);
+        Vec4 vertexVec4(vertex.x, vertex.y, vertex.z, 1, vertex.colorId);
         result.push_back(multiplyMatrixWithVec4(matrix4, vertexVec4));
     }
 
@@ -72,21 +90,27 @@ vector<Color> getTriangleColors(const Triangle &triangle, const std::vector<Vec3
 
 
 void drawPixel(std::vector<std::vector<Color>>& image, int x, int y, const Color& cl1, const Color& cl2, double pos, double length) {
-    image[x][y].r = round((cl1.r * (length - pos) + cl2.r * pos) / length);
-    image[x][y].g = round((cl1.g * (length - pos) + cl2.g * pos) / length);
-    image[x][y].b = round((cl1.b * (length - pos) + cl2.b * pos) / length);
+    image[x][y].r = makeBetween( (cl1.r * (length - pos) + cl2.r * pos) / length );
+    image[x][y].g = makeBetween((cl1.g * (length - pos) + cl2.g * pos) / length);
+    image[x][y].b = makeBetween((cl1.b * (length - pos) + cl2.b * pos) / length);
 }
 
+
 void drawSteepNegativeSlope(std::vector<std::vector<Color>>& image, const Vec4& p1, const Vec4& p2, const Color& cl1, const Color& cl2, double dx, double dy) {
-    int x = max(p1.x, p2.x), y = min(p1.y, p2.y);
-    double d = 2 * dx - dy, dE = 2 * dx, dNE = 2 * (dx - dy);
+    int x = max(p1.x, p2.x);
+    int y = min(p1.y, p2.y);
+
+    double valC = 2 * dx - dy;      // current
+    double valE = 2 * dx;           // east
+    double valNE = 2 * (dx - dy);   // north east
+
     while (y < max(p1.y, p2.y)) {
         drawPixel(image, x, y, cl1, cl2, abs(y - p2.y), dy);
-        if (d <= 0) {
-            d += dE;
+        if (valC <= 0) {
+            valC += valE;
             y++;
         } else {
-            d += dNE;
+            valC += valNE;
             x--;
             y++;
         }
@@ -94,15 +118,20 @@ void drawSteepNegativeSlope(std::vector<std::vector<Color>>& image, const Vec4& 
 }
 
 void drawSteepPositiveSlope(std::vector<std::vector<Color>>& image, const Vec4& p1, const Vec4& p2, const Color& cl1, const Color& cl2, double dx, double dy) {
-    int x = min(p1.x, p2.x), y = min(p1.y, p2.y);
-    double d = 2 * dx - dy, dE = 2 * dx, dNE = 2 * (dx - dy);
+    int x = min(p1.x, p2.x);
+    int y = min(p1.y, p2.y);
+
+    double valC = 2 * dx - dy;
+    double valE = 2 * dx;
+    double valNE = 2 * (dx - dy);
+
     while (y < max(p1.y, p2.y)) {
         drawPixel(image, x, y, cl1, cl2, abs(y - p2.y), dy);
-        if (d <= 0) {
-            d += dE;
+        if (valC <= 0) {
+            valC += valE;
             y++;
         } else {
-            d += dNE;
+            valC += valNE;
             x++;
             y++;
         }
@@ -110,15 +139,20 @@ void drawSteepPositiveSlope(std::vector<std::vector<Color>>& image, const Vec4& 
 }
 
 void drawShallowNegativeSlope(std::vector<std::vector<Color>>& image, const Vec4& p1, const Vec4& p2, const Color& cl1, const Color& cl2, double dx, double dy) {
-    int x = min(p1.x, p2.x), y = max(p1.y, p2.y);
-    double d = 2 * dy - dx, dE = 2 * dy, dNE = 2 * (dy - dx);
+    int x = min(p1.x, p2.x);
+    int y = max(p1.y, p2.y);
+
+    double valC = 2 * dy - dx;
+    double valE = 2 * dy;
+    double valNE = 2 * (dy - dx);
+    
     while (x < max(p1.x, p2.x)) {
         drawPixel(image, x, y, cl1, cl2, abs(x - p2.x), dx);
-        if (d <= 0) {
-            d += dE;
+        if (valC <= 0) {
+            valC += valE;
             x++;
         } else {
-            d += dNE;
+            valC += valNE;
             x++;
             y--;
         }
@@ -126,15 +160,20 @@ void drawShallowNegativeSlope(std::vector<std::vector<Color>>& image, const Vec4
 }
 
 void drawShallowPositiveSlope(std::vector<std::vector<Color>>& image, const Vec4& p1, const Vec4& p2, const Color& cl1, const Color& cl2, double dx, double dy) {
-    int x = min(p1.x, p2.x), y = min(p1.y, p2.y);
-    double d = 2 * dy - dx, dE = 2 * dy, dNE = 2 * (dy - dx);
+    int x = min(p1.x, p2.x);
+    int y = min(p1.y, p2.y);
+    
+    double valC = 2 * dy - dx;
+    double valE = 2 * dy; 
+    double valNE = 2 * (dy - dx);
+
     while (x < max(p1.x, p2.x)) {
         drawPixel(image, x, y, cl1, cl2, abs(x - p2.x), dx);
-        if (d <= 0) {
-            d += dE;
+        if (valC <= 0) {
+            valC += valE;
             x++;
         } else {
-            d += dNE;
+            valC += valNE;
             x++;
             y++;
         }
@@ -142,8 +181,13 @@ void drawShallowPositiveSlope(std::vector<std::vector<Color>>& image, const Vec4
 }
 
 
-void rasterizeLine(Vec4& p1, Vec4& p2, Color& cl1, Color& cl2, Matrix4 matViewport, std::vector<std::vector<Color>>& image) {
-    double tE = 0, tL = 1;
+void rasterizeLine( Vec4& p1, Vec4& p2, 
+                    Color& cl1, Color& cl2, 
+                    Matrix4 matViewport, 
+                    std::vector<std::vector<Color>>& image  ) 
+{
+    double entr = 0;
+    double lve = 1;
 
     // Normalize coordinates
     for (Vec4* point : {&p1, &p2}) {
@@ -154,45 +198,39 @@ void rasterizeLine(Vec4& p1, Vec4& p2, Color& cl1, Color& cl2, Matrix4 matViewpo
     }
 
     // Compute differences
-    double d_x = p2.x - p1.x, d_y = p2.y - p1.y, d_z = p2.z - p1.z;
+    double d_x = p2.x - p1.x;
+    double d_y = p2.y - p1.y;
+    double d_z = p2.z - p1.z;
     Color diff = cl2 - cl1;
 
     // Visibility checks
-    if (!(
-        isVisible(d_x, -1 - p1.x, tE, tL) &&
-        isVisible(-d_x, p1.x - 1, tE, tL) &&
-        isVisible(d_y, -1 - p1.y, tE, tL) &&
-        isVisible(-d_y, p1.y - 1, tE, tL) &&
-        isVisible(d_z, -1 - p1.z, tE, tL) &&
-        isVisible(-d_z, p1.z - 1, tE, tL)
-    )) return;
+    if (! isAllVisible( d_x, d_y, d_z, p1, entr , lve) )
+        return;
 
-    // Adjust endpoints for visible portion
-    if (tL < 1) {
-        interpolatePoint(p2, p1, tL, d_x, d_y, d_z);
-        interpolateColor(cl2, cl1, diff, tL);
+    if (lve < 1) {
+        interpolatePoint(p2, p1, lve, d_x, d_y, d_z);
+        interpolateColor(cl2, cl1, diff, lve);
     }
-    if (tE > 0) {
-        interpolatePoint(p1, p1, tE, d_x, d_y, d_z);
-        interpolateColor(cl1, cl1, diff, tE);
+    if (entr > 0) {
+        interpolatePoint(p1, p1, entr, d_x, d_y, d_z);
+        interpolateColor(cl1, cl1, diff, entr);
     }
 
-    // Transform to viewport space
     Vec4 pv1 = multiplyMatrixWithVec4(matViewport, p1);
     Vec4 pv2 = multiplyMatrixWithVec4(matViewport, p2);
 
-    // Calculate slope and differences
+    // Calculate slope and diff
     double slope = (pv2.y - pv1.y) / (pv2.x - pv1.x);
     double dx = abs(pv2.x - pv1.x);
     double dy = abs(pv2.y - pv1.y);
 
-    // Determine starting and ending points
+    // start point - end point
     int x = min(pv1.x, pv2.x);
     int y = min(pv1.y, pv2.y);
     int xEnd = max(pv1.x, pv2.x);
     int yEnd = max(pv1.y, pv2.y);
 
-    // Line drawing logic for each slope range
+    // Draw line according to slope
     if (slope <= -1) {
         drawSteepNegativeSlope(image, pv1, pv2, cl2, cl1, dx, dy);
         return;
@@ -236,8 +274,6 @@ void rasterizeSolid(vector<Vec4> points, vector<Color> colour, Matrix4 mat, Came
             yMin = points[i].y;
         if (points[i].y > yMax)
             yMax = points[i].y;
-
-
     }
 
 
@@ -253,7 +289,6 @@ void rasterizeSolid(vector<Vec4> points, vector<Color> colour, Matrix4 mat, Came
         tp.push_back(temp);
     }
 
-    // Rasterization algorithm using barycentric coordinates
     for (int i = xMin; i <= xMax; i++) {
         for (int j = yMin; j <= yMax; j++) {            
 
@@ -267,7 +302,7 @@ void rasterizeSolid(vector<Vec4> points, vector<Color> colour, Matrix4 mat, Came
                            
                            (    (tp[1].y - tp[2].y) * tp[0].x    +   
                                 (tp[2].x - tp[1].x) * tp[0].y    +   
-                                (tp[1].x * tp[2].y)                       -   
+                                (tp[1].x * tp[2].y)              -   
                                 (tp[2].x * tp[1].y)
                             );
 
@@ -283,7 +318,7 @@ void rasterizeSolid(vector<Vec4> points, vector<Color> colour, Matrix4 mat, Came
                             (
                                 (tp[1].y - tp[2].y) * tp[0].x    + 
                                 (tp[2].x - tp[1].x) * tp[0].y    + 
-                                (tp[1].x * tp[2].y)                       - 
+                                (tp[1].x * tp[2].y)              - 
                                 (tp[2].x * tp[1].y)
                             );
             
@@ -297,27 +332,21 @@ void rasterizeSolid(vector<Vec4> points, vector<Color> colour, Matrix4 mat, Came
 
                 // depth test
                 if (depth < scene->depthBuffer[i][j]) {
-                    // Update the depth buffer
+                    // Update depth buffer
                     scene->depthBuffer[i][j] = depth;
 
                     // interpolated color
                     Color c0 = colour[0];
+                    c0 *= alpha;
+                    
                     Color c1 = colour[1];
+                    c1 *= beta;
+
                     Color c2 = colour[2];
+                    c2 *= gamma;
 
 
-                    c0.r = c0.r * alpha;
-                    c0.g = c0.g * alpha;
-                    c0.b = c0.b * alpha;
-                    c1.r = c1.r * beta;
-                    c1.g = c1.g * beta;
-                    c1.b = c1.b * beta;
-                    c2.r = c2.r * gamma;
-                    c2.g = c2.g * gamma;
-                    c2.b = c2.b * gamma;
-
-
-                    // Write the interpolated color to the image
+                    // interpolated color to image
                     image[i][j].r = c0.r + c1.r + c2.r;
                     image[i][j].g = c0.g + c1.g + c2.g;
                     image[i][j].b = c0.b + c1.b + c2.b;

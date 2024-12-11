@@ -10,6 +10,7 @@
 #include "Triangle.h"
 #include "Helpers.h"
 #include "Scene.h"
+#include <limits>
 
 #include "Model_Transformations.h"
 #include "View_Transformations.h"
@@ -345,14 +346,14 @@ void Scene::convertPPMToPNG(string ppmFileName, int osType)
 void Scene::forwardRenderingPipeline(Camera *camera)
 {
     for (auto ms : meshes) {
-        
+
 
         // 1 - Modeling Transformation
         Matrix4 matModel = getModelMat(ms, scalings , rotations ,translations );
 
         // 2 - Camera Transformation
         Matrix4 matCamera = getCameraMat(camera);
-        
+
         // Combine Matrices I
         Matrix4 M1 = multiplyMatrixWithMatrix( matCamera , matModel);
 
@@ -368,7 +369,7 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 
         // 5 - Culling , Clipping , Rasterization
         for (auto tr : ms->triangles) {
-            
+
             vector<Vec4> points = processTrianglePoints(tr, M2, vertices);
 			Vec4 a = points[0];
         	Vec4 b = points[1];
@@ -387,7 +388,7 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 			// Triangle not culled => Next Triangle
             if( (cullingEnabled) &&  ( temp1 < 0 ) )
                 continue;
-			
+
 			double temp2 = dotProductVec3(n, Vec3(0, 0, -1, 0));
 
 			// CHECK
@@ -398,12 +399,12 @@ void Scene::forwardRenderingPipeline(Camera *camera)
             }
 
 			// SOLID_MESH
-            if (ms->type == SOLID_MESH) 
-				rasterizeSolid(points, colors, matViewport, camera, image, this); 
+            if (ms->type == SOLID_MESH)
+				rasterizeSolid(points, colors, matViewport, camera, image, this);
 
 			// WIREFRAME_MESH
-            else 
-			{   
+            else
+			{
                 rasterizeLine(a, b, colors[0], colors[1], matViewport, image);
                 rasterizeLine(b, c, colors[1], colors[2], matViewport, image);
                 rasterizeLine(c, a, colors[2], colors[0], matViewport, image);

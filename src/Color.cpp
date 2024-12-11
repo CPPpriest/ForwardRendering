@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <iostream>
 #include "Color.h"
 
 Color::Color() {
@@ -34,4 +35,12 @@ Color Color::operator-(const Color &other) const {
         g - other.g,
         b - other.b
     );
+}
+
+
+Color& Color::operator*=(double value) {
+    r *= value;
+    g *= value;
+    b *= value;
+    return *this;
 }

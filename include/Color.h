@@ -11,6 +11,7 @@ public:
     Color(const Color &other);
     friend std::ostream &operator<<(std::ostream &os, const Color &c);
     Color operator-(const Color &other) const;
+    Color &operator*=(double value);
 };
 
 #endif

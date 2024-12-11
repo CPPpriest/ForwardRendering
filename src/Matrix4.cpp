@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <iostream>
 #include "Matrix4.h"
 
 Matrix4::Matrix4()
@@ -32,6 +33,18 @@ Matrix4::Matrix4(const Matrix4 &other)
             this->values[i][j] = other.values[i][j];
         }
     }
+}
+
+Matrix4::Matrix4(std::initializer_list<std::initializer_list<double>> init)
+{
+    int row = 0;
+        for (const auto &r : init) {
+            int col = 0;
+            for (const auto &val : r) {
+                this->values[row][col++] = val;
+            }
+            row++;
+        }
 }
 
 std::ostream &operator<<(std::ostream &os, const Matrix4 &m)

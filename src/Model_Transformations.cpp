@@ -39,15 +39,17 @@ Matrix4 getModelMat(Mesh *mesh, std::vector<Scaling *>  scalings , std::vector<R
                 double s = sin(alpha * M_PI / 180.0);
                 double t = 1 - c;
 
-                matRotate.values[0][0] = t * ux * ux + c;
-                matRotate.values[0][1] = t * ux * uy - s * uz;
-                matRotate.values[0][2] = t * ux * uz + s * uy;
-                matRotate.values[1][0] = t * ux * uy + s * uz;
-                matRotate.values[1][1] = t * uy * uy + c;
-                matRotate.values[1][2] = t * uy * uz - s * ux;
-                matRotate.values[2][0] = t * ux * uz - s * uy;
-                matRotate.values[2][1] = t * uy * uz + s * ux;
-                matRotate.values[2][2] = t * uz * uz + c;
+                double values[3][3] = {
+                    {t * ux * ux + c,        t * ux * uy - s * uz, t * ux * uz + s * uy},
+                    {t * ux * uy + s * uz,   t * uy * uy + c,      t * uy * uz - s * ux},
+                    {t * ux * uz - s * uy,   t * uy * uz + s * ux, t * uz * uz + c}
+                };
+
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 0; j < 3; ++j) {
+                        matRotate.values[i][j] = values[i][j];
+                    }
+                }
 
                 resMat = multiplyMatrixWithMatrix(matRotate, resMat);
                 break;
