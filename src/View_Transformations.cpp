@@ -1,7 +1,5 @@
 #include "View_Transformations.h"
 
-
-
 Matrix4 getCameraMat(Camera *camera){
         
         Matrix4 matRotate = getIdentityMatrix();
@@ -74,5 +72,3 @@ Matrix4 getViewportMat(Camera *camera){
     
     return matViewport;
 }
-
-

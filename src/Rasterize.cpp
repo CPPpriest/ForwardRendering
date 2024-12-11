@@ -71,15 +71,11 @@ vector<Color> getTriangleColors(const Triangle &triangle, const std::vector<Vec3
 }
 
 
-
-
 void drawPixel(std::vector<std::vector<Color>>& image, int x, int y, const Color& cl1, const Color& cl2, double pos, double length) {
     image[x][y].r = round((cl1.r * (length - pos) + cl2.r * pos) / length);
     image[x][y].g = round((cl1.g * (length - pos) + cl2.g * pos) / length);
     image[x][y].b = round((cl1.b * (length - pos) + cl2.b * pos) / length);
 }
-
-
 
 void drawSteepNegativeSlope(std::vector<std::vector<Color>>& image, const Vec4& p1, const Vec4& p2, const Color& cl1, const Color& cl2, double dx, double dy) {
     int x = max(p1.x, p2.x), y = min(p1.y, p2.y);
@@ -215,8 +211,6 @@ void rasterizeLine(Vec4& p1, Vec4& p2, Color& cl1, Color& cl2, Matrix4 matViewpo
         return;
     }
 }
-
-
 
 
 void rasterizeSolid(vector<Vec4> points, vector<Color> colour, Matrix4 mat, Camera *camera, std::vector<std::vector<Color>> &image , Scene*scene)
